@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Indian Stock Market Analysis</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-3xl mx-auto">
+        <h1 class="text-3xl font-bold mb-8 text-center">Indian Stock Market Analysis</h1>
+        
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <div class="mb-4 text-sm text-gray-600">
+                Enter stock symbol without exchange suffix (e.g., 'RELIANCE' for Reliance Industries)
+            </div>
+            
+            <form id="analyzeForm" class="mb-6">
+                <div class="grid grid-cols-1 gap-4 md:grid-cols-3 mb-4">
+                    <input type="text" 
+                           id="ticker" 
+                           name="ticker" 
+                           placeholder="Enter stock symbol (e.g., RELIANCE)" 
+                           class="p-2 border rounded"
+                           required>
+                           
+                    <select id="exchange" 
+                            name="exchange" 
+                            class="p-2 border rounded">
+                        <option value="NSE">NSE (National Stock Exchange)</option>
+                        <option value="BSE">BSE (Bombay Stock Exchange)</option>
+                    </select>
+                           
+                    <select id="timeframe" 
+                            name="timeframe" 
+                            class="p-2 border rounded">
+                        <option value="intraday">Intraday Trading</option>
+                        <option value="short_term">Short Term (Days-Weeks)</option>
+                        <option value="mid_term">Mid Term (Weeks-Months)</option>
+                        <option value="long_term">Long Term (Months-Years)</option>
+                    </select>
+                </div>
+                
+                <button type="submit" 
+                        class="w-full bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600">
+                    Analyze
+                </button>
+            </form>
+            
+            <div id="marketStatus" class="mb-4 text-center text-sm">
+                <!-- Market status will be updated dynamically -->
+            </div>
+            
+            <div id="result" class="hidden">
+                <div class="text-center">
+                    <h2 class="text-xl font-semibold mb-4">Score Results</h2>
+                    <div class="text-6xl font-bold mb-2" id="scoreDisplay">--</div>
+                    <div class="text-gray-500 mb-2">
+                        <span id="tickerDisplay"></span>
+                        <span id="exchangeDisplay" class="ml-2"></span>
+                    </div>
+                    <div class="text-gray-500" id="timeframeDisplay"></div>
+                </div>
+                
+                <div class="mt-6 p-4 bg-gray-50 rounded">
+                    <h3 class="font-semibold mb-2">Scoring Factors:</h3>
+                    <div id="factorsDisplay" class="text-sm">
+                        <!-- Factors will be populated based on timeframe -->
+                    </div>
+                </div>
+            </div>
+            
+            <div id="error" class="hidden">
+                <div class="text-red-500 text-center" id="errorMessage"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const scoringFactors = {
+            'intraday': [
+                'Volume Analysis (25 points)',
+                'Price Movement (25 points)',
+                'Volatility (25 points)',
+                'Technical Indicators (25 points)'
+            ],
+            'short_term': [
+                'Moving Average Analysis (25 points)',
+                'RSI Analysis (25 points)',
+                'Volume Trend (25 points)',
+                'Price Momentum (25 points)'
+            ],
+            'mid_term': [
+                'Trend Analysis (25 points)',
+                'Financial Metrics (25 points)',
+                'Volatility (25 points)',
+                'Sector Performance (25 points)'
+            ],
+            'long_term': [
+                'Fundamental Analysis (25 points)',
+                'Growth Metrics (25 points)',
+                'Financial Health (25 points)',
+                'Dividend and Stability (25 points)'
+            ]
+        };
+
+        // Update market status
+        function updateMarketStatus() {
+            const now = new Date();
+            const indiaTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+            const day = indiaTime.getDay();
+            const hours = indiaTime.getHours();
+            const minutes = indiaTime.getMinutes();
+            const currentTime = hours * 60 + minutes;
+            const marketOpen = 9 * 60 + 15;  // 9:15 AM
+            const marketClose = 15 * 60 + 30; // 3:30 PM
+            
+            const statusDiv = document.getElementById('marketStatus');
+            
+            if (day === 0 || day === 6) {
+                statusDiv.innerHTML = '<span class="text-red-500">Market Closed (Weekend)</span>';
+            } else if (currentTime < marketOpen) {
+                statusDiv.innerHTML = '<span class="text-yellow-500">Market Pre-Open</span>';
+            } else if (currentTime > marketClose) {
+                statusDiv.innerHTML = '<span class="text-red-500">Market Closed</span>';
+            } else {
+                statusDiv.innerHTML = '<span class="text-green-500">Market Open</span>';
+            }
+        }
+
+        // Update market status every minute
+        updateMarketStatus();
+        setInterval(updateMarketStatus, 60000);
+
+        document.getElementById('analyzeForm').onsubmit = async (e) => {
+            e.preventDefault();
+            
+            const ticker = document.getElementById('ticker').value;
+            const exchange = document.getElementById('exchange').value;
+            const timeframe = document.getElementById('timeframe').value;
+            const resultDiv = document.getElementById('result');
+            const errorDiv = document.getElementById('error');
+            
+            try {
+                const response = await fetch('/analyze', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `ticker=${encodeURIComponent(ticker)}&exchange=${encodeURIComponent(exchange)}&timeframe=${encodeURIComponent(timeframe)}`
+                });
+                
+                const data = await response.json();
+                
+                if (data.error) {
+                    errorDiv.classList.remove('hidden');
+                    resultDiv.classList.add('hidden');
+                    document.getElementById('errorMessage').textContent = data.error;
+                } else {
+                    errorDiv.classList.add('hidden');
+                    resultDiv.classList.remove('hidden');
+                    document.getElementById('scoreDisplay').textContent = data.score;
+                    document.getElementById('tickerDisplay').textContent = data.ticker;
+                    document.getElementById('exchangeDisplay').textContent = `(${data.exchange})`;
+                    document.getElementById('timeframeDisplay').textContent = 
+                        document.getElementById('timeframe').options[
+                            document.getElementById('timeframe').selectedIndex
+                        ].text;
+                    
+                    // Display factors
+                    const factorsHtml = scoringFactors[data.timeframe]
+                        .map(factor => `<div class="mb-1">• ${factor}</div>`)
+                        .join('');
+                    document.getElementById('factorsDisplay').innerHTML = factorsHtml;
+                }
+            } catch (error) {
+                errorDiv.classList.remove('hidden');
+                resultDiv.classList.add('hidden');
+                document.getElementById('errorMessage').textContent = 'An error occurred while analyzing the stock.';
+            }
+        };
+    </script>
+</body>
+</html>
